@@ -1,0 +1,97 @@
+name: Publish application images
+
+on:
+  workflow_run:
+    workflows:
+      - Validate applications
+    branches:
+      - main
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-application-images-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  publish:
+    name: Build, scan and publish ${{ matrix.image }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: lab
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: pharmacy-backend
+            context: apps/backend
+          - image: pharmacy-ui
+            context: apps/ui
+
+    steps:
+      - name: Check out validated revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.IMAGE_TAG }}
+          persist-credentials: false
+
+      - name: Log in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log Docker in to Azure Container Registry
+        shell: bash
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+        run: |
+          acr_name="${ACR_LOGIN_SERVER%%.*}"
+          az acr login --name "$acr_name"
+
+      - name: Build immutable image
+        shell: bash
+        env:
+          ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
+          IMAGE_NAME: ${{ matrix.image }}
+          BUILD_CONTEXT: ${{ matrix.context }}
+        run: |
+          image="$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+          docker build --pull --tag "$image" "$BUILD_CONTEXT"
+          echo "PUBLISH_IMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Scan image for critical vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.PUBLISH_IMAGE }}
+          format: table
+          scanners: vuln
+          vuln-type: os,library
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Push immutable image
+        shell: bash
+        run: docker push "$PUBLISH_IMAGE"
+
+      - name: Record published image
+        shell: bash
+        run: |
+          {
+            echo "### Published ${{ matrix.image }}"
+            echo
+            echo "\`$PUBLISH_IMAGE\`"
+          } >> "$GITHUB_STEP_SUMMARY"
