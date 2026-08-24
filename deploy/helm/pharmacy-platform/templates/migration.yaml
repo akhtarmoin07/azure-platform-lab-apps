@@ -1,0 +1,50 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pharmacy-schema-migration
+  labels:
+    {{- include "pharmacy-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-options: Replace=true
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        {{- include "pharmacy-platform.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ .Values.migration.workloadIdentity.serviceAccountName }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          args: ["migrate"]
+          env:
+            - name: DATABASE_DRIVER
+              value: {{ .Values.backend.database.driver | quote }}
+            - name: SQL_SERVER
+              value: {{ .Values.backend.database.server | quote }}
+            - name: SQL_DATABASE
+              value: {{ .Values.backend.database.name | quote }}
+            - name: SQL_FEDAUTH
+              value: {{ .Values.backend.database.fedAuth | quote }}
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+{{- end }}

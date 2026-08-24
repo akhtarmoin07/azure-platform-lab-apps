@@ -75,3 +75,12 @@ jobs:
           --namespace prod
           --values deploy/helm/pharmacy-platform/values-prod.yaml
           > /tmp/pharmacy-prod.yaml
+
+      - name: Render migration identity contract
+        run: >-
+          helm template pharmacy-dev deploy/helm/pharmacy-platform
+          --namespace dev
+          --values deploy/helm/pharmacy-platform/values-dev.yaml
+          --set migration.enabled=true
+          --set migration.workloadIdentity.clientId=00000000-0000-0000-0000-000000000001
+          > /tmp/pharmacy-migration.yaml

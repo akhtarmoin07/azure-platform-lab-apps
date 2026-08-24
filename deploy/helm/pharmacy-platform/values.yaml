@@ -48,6 +48,19 @@ backend:
     enabled: false
     minAvailable: 1
 
+migration:
+  enabled: false
+  workloadIdentity:
+    serviceAccountName: pharmacy-migration
+    clientId: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 networkPolicy:
   enabled: true
   ingressNamespace: ingress-nginx

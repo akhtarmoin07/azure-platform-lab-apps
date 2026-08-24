@@ -5,6 +5,8 @@ metadata:
   labels:
     {{- include "pharmacy-platform.labels" . | nindent 4 }}
     app.kubernetes.io/component: backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   replicas: {{ .Values.backend.replicas }}
   strategy:
