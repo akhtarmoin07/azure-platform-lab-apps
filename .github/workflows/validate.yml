@@ -84,3 +84,9 @@ jobs:
           --set migration.enabled=true
           --set migration.workloadIdentity.clientId=00000000-0000-0000-0000-000000000001
           > /tmp/pharmacy-migration.yaml
+
+      - name: Verify migration reconciliation contract
+        run: |
+          grep -q 'argocd.argoproj.io/sync-wave: "-2"' /tmp/pharmacy-migration.yaml
+          grep -q 'argocd.argoproj.io/sync-wave: "-1"' /tmp/pharmacy-migration.yaml
+          grep -q 'argocd.argoproj.io/sync-options: Force=true,Replace=true' /tmp/pharmacy-migration.yaml
