@@ -111,6 +111,8 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: migration-egress
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 spec:
   podSelector:
     matchLabels:
