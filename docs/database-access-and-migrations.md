@@ -21,7 +21,13 @@ production delivery workflow should open a reviewed GitOps pull request that
 sets both immutable image digests and the non-secret workload identity client
 IDs. Application CI must not call `kubectl apply` directly.
 
-The fixed Job name and Argo CD `Replace=true` sync option allow a new immutable
-image revision to replace the completed previous migration Job. Migration SQL
-must remain backward-compatible and idempotent because application replicas can
-overlap during rolling deployment.
+The Job name contains the first 12 characters of the immutable backend image tag.
+A new image therefore creates a new migration Job, while replica or resource-only
+changes reuse the completed Job and proceed directly to the deployment wave. Argo
+CD prunes the previous revision after a successful sync.
+
+If a transient dependency causes a migration to fail and the same image must be
+retried, increment `migration.retryRevision` through a reviewed Git change. This
+creates a new Job without using forced replacement of immutable Kubernetes Job
+fields. Migration SQL must remain backward-compatible and idempotent because
+application replicas can overlap during rolling deployment.

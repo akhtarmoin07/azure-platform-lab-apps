@@ -50,6 +50,8 @@ backend:
 
 migration:
   enabled: false
+  # Bump only when the same immutable image must retry a failed migration.
+  retryRevision: 0
   workloadIdentity:
     serviceAccountName: pharmacy-migration
     clientId: ""
