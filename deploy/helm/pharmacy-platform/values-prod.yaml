@@ -1,16 +1,16 @@
 ui:
-  replicas: 2
+  replicas: 1
   image:
     tag: prod
   pdb:
-    enabled: true
+    enabled: false
 
 backend:
-  replicas: 2
+  replicas: 1
   image:
     tag: prod
   pdb:
-    enabled: true
+    enabled: false
   database:
     server: sql-azplab-d45c2a33.database.windows.net
     name: pharmacy-prod
