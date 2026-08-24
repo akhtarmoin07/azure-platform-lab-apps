@@ -21,3 +21,10 @@ helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" }}
 app.kubernetes.io/name: {{ include "pharmacy-platform.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{- define "pharmacy-platform.migrationJobName" -}}
+{{- $imageTag := required "backend.image.tag is required when migration is enabled" .Values.backend.image.tag -}}
+{{- $safeImageTag := regexReplaceAll "[^a-z0-9-]+" (lower $imageTag) "-" | trimAll "-" | trunc 12 | trimSuffix "-" -}}
+{{- $retryRevision := regexReplaceAll "[^a-z0-9-]+" (lower (toString .Values.migration.retryRevision)) "-" | trimAll "-" -}}
+{{- printf "pharmacy-schema-migration-%s-r%s" $safeImageTag $retryRevision | trunc 63 | trimSuffix "-" -}}
+{{- end }}

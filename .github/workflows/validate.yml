@@ -82,6 +82,7 @@ jobs:
           --namespace dev
           --values deploy/helm/pharmacy-platform/values-dev.yaml
           --set migration.enabled=true
+          --set-string backend.image.tag=0123456789abcdef0123456789abcdef01234567
           --set migration.workloadIdentity.clientId=00000000-0000-0000-0000-000000000001
           > /tmp/pharmacy-migration.yaml
 
@@ -89,4 +90,8 @@ jobs:
         run: |
           grep -q 'argocd.argoproj.io/sync-wave: "-2"' /tmp/pharmacy-migration.yaml
           grep -q 'argocd.argoproj.io/sync-wave: "-1"' /tmp/pharmacy-migration.yaml
-          grep -q 'argocd.argoproj.io/sync-options: Force=true,Replace=true' /tmp/pharmacy-migration.yaml
+          grep -q 'name: pharmacy-schema-migration-0123456789ab-r0' /tmp/pharmacy-migration.yaml
+          if grep -q 'Force=true' /tmp/pharmacy-migration.yaml; then
+            echo 'Migration Job must not be forcibly rerun for configuration-only changes.'
+            exit 1
+          fi

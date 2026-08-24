@@ -2,13 +2,14 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: pharmacy-schema-migration
+  name: {{ include "pharmacy-platform.migrationJobName" . }}
   labels:
     {{- include "pharmacy-platform.labels" . | nindent 4 }}
     app.kubernetes.io/component: migration
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-    argocd.argoproj.io/sync-options: Force=true,Replace=true
+    pharmacy-platform.io/image-tag: {{ .Values.backend.image.tag | quote }}
+    pharmacy-platform.io/retry-revision: {{ .Values.migration.retryRevision | quote }}
 spec:
   backoffLimit: 2
   template:
