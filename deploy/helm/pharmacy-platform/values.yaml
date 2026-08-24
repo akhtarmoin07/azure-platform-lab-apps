@@ -1,0 +1,73 @@
+nameOverride: ""
+fullnameOverride: ""
+
+ui:
+  replicas: 1
+  image:
+    repository: replace.azurecr.io/pharmacy-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 150m
+      memory: 128Mi
+  pdb:
+    enabled: false
+    minAvailable: 1
+
+backend:
+  replicas: 1
+  image:
+    repository: replace.azurecr.io/pharmacy-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 8080
+  databaseSecret:
+    name: pharmacy-database
+    urlKey: database-url
+  serviceAccount:
+    annotations: {}
+  podLabels: {}
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 350m
+      memory: 256Mi
+  pdb:
+    enabled: false
+    minAvailable: 1
+
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: 17-alpine
+    pullPolicy: IfNotPresent
+  name: pharmacy
+  username: pharmacy
+  existingSecret:
+    name: pharmacy-database
+    passwordKey: postgres-password
+  persistence:
+    enabled: false
+    storageClassName: ""
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 400m
+      memory: 512Mi
+
+networkPolicy:
+  enabled: true
+  ingressNamespace: ingress-nginx

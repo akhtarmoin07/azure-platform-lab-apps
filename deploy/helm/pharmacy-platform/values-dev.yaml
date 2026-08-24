@@ -1,0 +1,11 @@
+ui:
+  image:
+    tag: dev
+
+backend:
+  image:
+    tag: dev
+
+database:
+  persistence:
+    enabled: false

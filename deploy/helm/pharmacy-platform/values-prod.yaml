@@ -1,0 +1,17 @@
+ui:
+  replicas: 2
+  image:
+    tag: prod
+  pdb:
+    enabled: true
+
+backend:
+  replicas: 2
+  image:
+    tag: prod
+  pdb:
+    enabled: true
+
+database:
+  persistence:
+    enabled: true

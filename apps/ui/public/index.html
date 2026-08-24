@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Azure platform engineering laboratory application">
+    <title>CareLab Pharmacy</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Azure platform laboratory</p>
+        <h1>CareLab Pharmacy</h1>
+        <p>UI → backend → PostgreSQL, delivered through Kubernetes and GitOps.</p>
+      </div>
+      <span id="status" class="status">Connecting…</span>
+    </header>
+
+    <main>
+      <section>
+        <h2>Available products</h2>
+        <div id="products" class="grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <template id="product-template">
+      <article class="card">
+        <div class="icon">+</div>
+        <h3></h3>
+        <p></p>
+        <strong></strong>
+      </article>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
