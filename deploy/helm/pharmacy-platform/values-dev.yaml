@@ -1,0 +1,10 @@
+ui:
+  image:
+    tag: dev
+
+backend:
+  image:
+    tag: dev
+  database:
+    server: sql-azplab-d45c2a33.database.windows.net
+    name: pharmacy-dev

@@ -1,0 +1,86 @@
+name: Validate applications
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Test backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+
+      - name: Verify formatting
+        working-directory: apps/backend
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet backend
+        working-directory: apps/backend
+        run: go vet ./...
+
+      - name: Test backend
+        working-directory: apps/backend
+        run: go test -race -coverprofile=coverage.out ./...
+
+  containers:
+    name: Build containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build --tag pharmacy-backend:ci apps/backend
+
+      - name: Build UI image
+        run: docker build --tag pharmacy-ui:ci apps/ui
+
+  helm:
+    name: Lint and render Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v4.0.4
+
+      - name: Lint default values
+        run: helm lint deploy/helm/pharmacy-platform
+
+      - name: Render development release
+        run: >-
+          helm template pharmacy-dev deploy/helm/pharmacy-platform
+          --namespace dev
+          --values deploy/helm/pharmacy-platform/values-dev.yaml
+          > /tmp/pharmacy-dev.yaml
+
+      - name: Render production release
+        run: >-
+          helm template pharmacy-prod deploy/helm/pharmacy-platform
+          --namespace prod
+          --values deploy/helm/pharmacy-platform/values-prod.yaml
+          > /tmp/pharmacy-prod.yaml
+
+      - name: Render migration identity contract
+        run: >-
+          helm template pharmacy-dev deploy/helm/pharmacy-platform
+          --namespace dev
+          --values deploy/helm/pharmacy-platform/values-dev.yaml
+          --set migration.enabled=true
+          --set migration.workloadIdentity.clientId=00000000-0000-0000-0000-000000000001
+          > /tmp/pharmacy-migration.yaml
