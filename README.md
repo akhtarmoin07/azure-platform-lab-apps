@@ -17,15 +17,16 @@ NGINX UI :8080
 Go backend :8080
   |
   v
-PostgreSQL :5432
+Azure SQL Database :1433 through Private Link
 ```
 
 - The UI serves static files and proxies `/api/*` to the `backend` service.
 - The backend exposes structured JSON logs, graceful shutdown, liveness and
   database-aware readiness endpoints.
-- PostgreSQL is used by Docker Compose and the first in-cluster lab release.
-  The Helm chart accepts an existing database Secret so Azure Database for
-  PostgreSQL can replace the StatefulSet without changing application images.
+- AKS uses the Microsoft Go SQL Server driver and Azure Workload Identity. No
+  database username or password is stored in Kubernetes or Git.
+- Docker Compose uses a disposable SQL Server Developer container and local-only
+  `sa` password so the same T-SQL schema can be tested without Azure access.
 
 ## Repository layout
 
@@ -35,7 +36,7 @@ apps/ui/                              Static UI, NGINX proxy and Dockerfile
 deploy/helm/pharmacy-platform/        Reusable Kubernetes Helm chart
 deploy/helm/pharmacy-platform/templates/
 .github/workflows/validate.yml        Go, container and Helm pull-request checks
-compose.yaml                          Local UI/backend/PostgreSQL environment
+compose.yaml                          Local UI/backend/SQL Server environment
 .env.example                          Non-secret local environment template
 ```
 
@@ -68,7 +69,7 @@ Stop the containers without removing database data:
 docker compose down
 ```
 
-Remove the local PostgreSQL volume only when a clean database is intended:
+Remove the local SQL Server volume only when a clean database is intended:
 
 ```bash
 docker compose down --volumes
@@ -94,7 +95,8 @@ cd ../..
 - The Go binary is compiled with CGO disabled in a multi-stage build.
 - Kubernetes drops Linux capabilities and prevents privilege escalation.
 - UI and backend root filesystems are read-only in Kubernetes.
-- No Kubernetes service account token is mounted into these pods.
+- The UI does not mount a Kubernetes API token. The backend receives only the
+  projected, audience-scoped token required for workload identity.
 - Images and dependencies are pinned to explicit version families rather than
   floating without any version.
 
@@ -120,33 +122,51 @@ helm template pharmacy-prod deploy/helm/pharmacy-platform \
 The chart creates:
 
 - UI and backend Deployments and ClusterIP Services;
-- separate ServiceAccounts without automatic API tokens;
+- separate ServiceAccounts, including the workload-identity backend account;
 - liveness, readiness, and startup probes;
 - resource requests and limits compatible with namespace quotas;
 - topology-spread preferences for future multi-node clusters;
 - optional UI/backend PodDisruptionBudgets;
-- an optional PostgreSQL StatefulSet and headless Service;
-- least-connectivity NetworkPolicies for UI → backend → database.
+- non-secret Azure SQL server/database configuration; and
+- least-connectivity NetworkPolicies for UI to backend, Azure SQL Private Link,
+  DNS and the Entra token endpoint.
 
-Development runs one UI and backend replica with ephemeral database storage.
-Production-pattern values run two UI/backend replicas, enable PDBs, and request
-a PostgreSQL persistent volume. On the current one-node AKS lab, replicas and
-PDBs demonstrate Kubernetes behavior but do not provide node-failure tolerance.
+Development runs one UI and backend replica against `pharmacy-dev`.
+Production-pattern values run two UI/backend replicas with PDBs against
+`pharmacy-prod`. On the current one-node AKS lab, replicas and PDBs demonstrate
+Kubernetes behavior but do not provide node-failure tolerance.
 
-## Secret contract
+## Azure SQL identity contract
 
-The chart never generates or stores a database password in Git. Before a Helm or
-Argo deployment, the destination namespace must contain a Secret named
-`pharmacy-database` with:
+Terraform federates these exact Kubernetes identities:
 
 ```text
-postgres-password    PostgreSQL password
-database-url         Complete backend PostgreSQL connection string
+system:serviceaccount:dev:pharmacy-backend
+system:serviceaccount:prod:pharmacy-backend
 ```
 
-For local Kubernetes troubleshooting only, this can be created imperatively.
-The target implementation will source these values from Azure Key Vault through
-AKS workload identity and the Secrets Store CSI driver.
+The environment-specific Helm release must set
+`backend.workloadIdentity.clientId` to the corresponding Terraform output. The
+AKS workload-identity webhook then injects `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`
+and a projected OIDC token into the backend pod. The Go driver exchanges that
+token for an Azure SQL access token using `ActiveDirectoryWorkloadIdentity`.
+
+The SQL hostname and database name are configuration rather than secrets. TLS
+encryption and server-certificate validation are mandatory in Azure.
+
+## Database migration contract
+
+Normal backend startup checks connectivity but never modifies the schema. Run
+the same container with the `migrate` argument to apply the idempotent T-SQL
+schema and seed data:
+
+```bash
+/backend migrate
+```
+
+Docker Compose does this automatically for local development. AKS will use a
+controlled migration Job and a separately authorized migration identity. Runtime
+backend identities will receive only data read/write permissions.
 
 ## Delivery model
 

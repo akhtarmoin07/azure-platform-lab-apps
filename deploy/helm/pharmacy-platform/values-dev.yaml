@@ -5,7 +5,6 @@ ui:
 backend:
   image:
     tag: dev
-
-database:
-  persistence:
-    enabled: false
+  database:
+    server: sql-azplab-d45c2a33.database.windows.net
+    name: pharmacy-dev

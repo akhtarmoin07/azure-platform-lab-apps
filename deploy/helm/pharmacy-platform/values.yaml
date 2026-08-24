@@ -28,12 +28,15 @@ backend:
     pullPolicy: IfNotPresent
   service:
     port: 8080
-  databaseSecret:
-    name: pharmacy-database
-    urlKey: database-url
-  serviceAccount:
-    annotations: {}
-  podLabels: {}
+  database:
+    driver: azuresql
+    server: replace.database.windows.net
+    name: pharmacy-dev
+    fedAuth: ActiveDirectoryWorkloadIdentity
+  workloadIdentity:
+    enabled: true
+    serviceAccountName: pharmacy-backend
+    clientId: ""
   resources:
     requests:
       cpu: 100m
@@ -45,29 +48,7 @@ backend:
     enabled: false
     minAvailable: 1
 
-database:
-  enabled: true
-  image:
-    repository: postgres
-    tag: 17-alpine
-    pullPolicy: IfNotPresent
-  name: pharmacy
-  username: pharmacy
-  existingSecret:
-    name: pharmacy-database
-    passwordKey: postgres-password
-  persistence:
-    enabled: false
-    storageClassName: ""
-    size: 2Gi
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 400m
-      memory: 512Mi
-
 networkPolicy:
   enabled: true
   ingressNamespace: ingress-nginx
+  privateEndpointCidr: 10.20.4.0/24

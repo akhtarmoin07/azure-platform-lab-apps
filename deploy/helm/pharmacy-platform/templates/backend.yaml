@@ -20,11 +20,11 @@ spec:
       labels:
         {{- include "pharmacy-platform.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
-        {{- with .Values.backend.podLabels }}
-        {{- toYaml . | nindent 8 }}
+        {{- if .Values.backend.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
         {{- end }}
     spec:
-      serviceAccountName: backend
+      serviceAccountName: {{ .Values.backend.workloadIdentity.serviceAccountName }}
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
@@ -39,11 +39,14 @@ spec:
           env:
             - name: HTTP_ADDRESS
               value: :8080
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.backend.databaseSecret.name }}
-                  key: {{ .Values.backend.databaseSecret.urlKey }}
+            - name: DATABASE_DRIVER
+              value: {{ .Values.backend.database.driver | quote }}
+            - name: SQL_SERVER
+              value: {{ .Values.backend.database.server | quote }}
+            - name: SQL_DATABASE
+              value: {{ .Values.backend.database.name | quote }}
+            - name: SQL_FEDAUTH
+              value: {{ .Values.backend.database.fedAuth | quote }}
           ports:
             - name: http
               containerPort: 8080

@@ -1,17 +1,48 @@
 services:
   database:
-    image: postgres:17-alpine
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pharmacy}
-      POSTGRES_USER: ${POSTGRES_USER:-pharmacy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mssql-data:/var/opt/mssql
+    networks:
+      - application
+
+  database-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        /opt/mssql-tools18/bin/sqlcmd -S database -U sa
+        -P "$${MSSQL_SA_PASSWORD}" -C
+        -Q "IF DB_ID(N'$${MSSQL_DATABASE}') IS NULL CREATE DATABASE [$${MSSQL_DATABASE}]"
+    environment:
+      MSSQL_DATABASE: ${MSSQL_DATABASE:-pharmacy}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - application
+
+  migration:
+    build:
+      context: apps/backend
+    command: ["migrate"]
+    environment:
+      DATABASE_DRIVER: sqlserver
+      DATABASE_URL: sqlserver://sa:${MSSQL_SA_PASSWORD}@database:1433?database=${MSSQL_DATABASE:-pharmacy}&encrypt=true&TrustServerCertificate=true
+    depends_on:
+      database-init:
+        condition: service_completed_successfully
     networks:
       - application
 
@@ -20,10 +51,11 @@ services:
       context: apps/backend
     environment:
       HTTP_ADDRESS: :8080
-      DATABASE_URL: postgres://${POSTGRES_USER:-pharmacy}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-pharmacy}?sslmode=disable
+      DATABASE_DRIVER: sqlserver
+      DATABASE_URL: sqlserver://sa:${MSSQL_SA_PASSWORD}@database:1433?database=${MSSQL_DATABASE:-pharmacy}&encrypt=true&TrustServerCertificate=true
     depends_on:
-      database:
-        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/backend", "healthcheck", "http://localhost:8080/health/ready"]
       interval: 10s
@@ -49,7 +81,7 @@ services:
       - application
 
 volumes:
-  postgres-data:
+  mssql-data:
 
 networks:
   application:

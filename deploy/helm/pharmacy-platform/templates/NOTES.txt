@@ -3,9 +3,7 @@ The pharmacy platform chart has been rendered for namespace {{ .Release.Namespac
 Expected services:
   ui:       http://ui:{{ .Values.ui.service.port }}
   backend:  http://backend:{{ .Values.backend.service.port }}
-{{- if .Values.database.enabled }}
-  database: database:5432
-{{- end }}
 
-The Secret {{ .Values.backend.databaseSecret.name }} must exist before the
-backend and database pods can start.
+The backend connects to {{ .Values.backend.database.name }} on
+{{ .Values.backend.database.server }} by using AKS workload identity. Configure
+the environment-specific managed identity client ID before deployment.

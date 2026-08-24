@@ -12,8 +12,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type medicine struct {
@@ -38,13 +36,13 @@ func main() {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		logger.Error("DATABASE_URL is required")
+	databaseConfiguration, err := loadDatabaseConfiguration()
+	if err != nil {
+		logger.Error("load database configuration", "error", err)
 		os.Exit(1)
 	}
 
-	database, err := sql.Open("pgx", databaseURL)
+	database, err := sql.Open(databaseConfiguration.Driver, databaseConfiguration.ConnectionString)
 	if err != nil {
 		logger.Error("open database", "error", err)
 		os.Exit(1)
@@ -57,9 +55,18 @@ func main() {
 
 	startupContext, cancelStartup := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancelStartup()
-	if err := initialiseDatabase(startupContext, database); err != nil {
-		logger.Error("initialise database", "error", err)
+	if err := database.PingContext(startupContext); err != nil {
+		logger.Error("connect to database", "error", err)
 		os.Exit(1)
+	}
+
+	if len(os.Args) == 2 && os.Args[1] == "migrate" {
+		if err := migrateDatabase(startupContext, database); err != nil {
+			logger.Error("migrate database", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("database migration completed")
+		return
 	}
 
 	app := &application{database: database, logger: logger}
@@ -144,30 +151,6 @@ func (app *application) listMedicines(response http.ResponseWriter, request *htt
 		return
 	}
 	writeJSON(response, http.StatusOK, medicines)
-}
-
-func initialiseDatabase(ctx context.Context, database *sql.DB) error {
-	if err := database.PingContext(ctx); err != nil {
-		return fmt.Errorf("ping database: %w", err)
-	}
-
-	const schema = `
-		CREATE TABLE IF NOT EXISTS medicines (
-			id SERIAL PRIMARY KEY,
-			name TEXT NOT NULL UNIQUE,
-			description TEXT NOT NULL,
-			price NUMERIC(10, 2) NOT NULL CHECK (price >= 0)
-		);
-		INSERT INTO medicines (name, description, price) VALUES
-			('Vitamin D3', 'Daily vitamin D supplement', 8.99),
-			('Saline Nasal Spray', 'Gentle isotonic nasal spray', 5.49),
-			('Digital Thermometer', 'Fast-reading digital thermometer', 12.90)
-		ON CONFLICT (name) DO NOTHING;
-	`
-	if _, err := database.ExecContext(ctx, schema); err != nil {
-		return fmt.Errorf("apply schema: %w", err)
-	}
-	return nil
 }
 
 func writeJSON(response http.ResponseWriter, status int, value any) {

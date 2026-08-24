@@ -21,7 +21,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: ui-to-backend
+  name: ui-egress
 spec:
   podSelector:
     matchLabels:
@@ -37,11 +37,23 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: backend-from-ui
+  name: backend-ingress
 spec:
   podSelector:
     matchLabels:
@@ -57,12 +69,11 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
-{{- if .Values.database.enabled }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: backend-to-database
+  name: backend-egress
 spec:
   podSelector:
     matchLabels:
@@ -71,32 +82,27 @@ spec:
   policyTypes: ["Egress"]
   egress:
     - to:
-        - podSelector:
+        - namespaceSelector:
             matchLabels:
-              {{- include "pharmacy-platform.selectorLabels" . | nindent 14 }}
-              app.kubernetes.io/component: database
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.privateEndpointCidr }}
       ports:
         - protocol: TCP
-          port: 5432
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: database-from-backend
-spec:
-  podSelector:
-    matchLabels:
-      {{- include "pharmacy-platform.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: database
-  policyTypes: ["Ingress"]
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              {{- include "pharmacy-platform.selectorLabels" . | nindent 14 }}
-              app.kubernetes.io/component: backend
+          port: 1433
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
-          port: 5432
-{{- end }}
+          port: 443
 {{- end }}

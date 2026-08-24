@@ -11,7 +11,6 @@ backend:
     tag: prod
   pdb:
     enabled: true
-
-database:
-  persistence:
-    enabled: true
+  database:
+    server: sql-azplab-d45c2a33.database.windows.net
+    name: pharmacy-prod
