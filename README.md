@@ -1,5 +1,11 @@
 # Azure Platform Lab Applications
 
+The UI is exposed through a namespace-scoped Kubernetes `HTTPRoute` attached
+to the platform-owned `public-gateway`. The UI Service remains `ClusterIP`, and
+the backend has no public route. Phase-one hostnames use the reserved `.test`
+domain (`dev.pharmacy.test` and `pharmacy.test`) for Host-header testing; public
+DNS and TLS are added separately.
+
 This repository contains the deliberately small application workload used to
 exercise the Azure platform. Business logic is kept simple so containerization,
 Helm, GitOps, identity, networking, observability, reliability, and promotion

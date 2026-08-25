@@ -63,7 +63,14 @@ migration:
       cpu: 200m
       memory: 128Mi
 
+gateway:
+  enabled: false
+  name: public-gateway
+  namespace: platform-system
+  hostname: ""
+
 networkPolicy:
   enabled: true
-  ingressNamespace: ingress-nginx
+  gatewayNamespace: platform-system
+  gatewayName: public-gateway
   privateEndpointCidr: 10.20.4.0/24
