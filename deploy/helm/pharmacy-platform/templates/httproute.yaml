@@ -27,4 +27,5 @@ spec:
           kind: Service
           name: ui
           port: {{ .Values.ui.service.port }}
+          weight: 1
 {{- end }}
