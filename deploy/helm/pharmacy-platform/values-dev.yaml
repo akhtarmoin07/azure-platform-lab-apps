@@ -11,4 +11,4 @@ backend:
 
 gateway:
   enabled: true
-  hostname: dev.pharmacy.test
+  hostname: dev.4-223-16-69.nip.io
