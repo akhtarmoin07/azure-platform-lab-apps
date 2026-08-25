@@ -8,3 +8,7 @@ backend:
   database:
     server: sql-azplab-d45c2a33.database.windows.net
     name: pharmacy-dev
+
+gateway:
+  enabled: true
+  hostname: dev.pharmacy.test
